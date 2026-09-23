@@ -54,54 +54,53 @@ std::vector<Row> decodeLog(const std::string& path) {
     std::vector<Row> rows;
     std::ifstream file(path);
     int STEER_ActuatorLog_ID = 0x200;
-    int can_id_mask = 0x7FF; // do we need this?
 
     // same for both 
     int offset = 0;
     double scale = 0.1;
 
-    double timestamp = 0;
     double first_timestamp = -1;
-    double t = 0;
     // if (!file.is_open()) {
     //     std::cout << "Failed to open file\n";
     //     return 1;
     // }
     std::string line;
     while (std::getline(file, line)) {
-        // timestamp
-        size_t start = line.find('(');
-        size_t end = line.find(')');
-        timestamp = std::stod(line.substr(start + 1, end - start - 1));
-        if (first_timestamp == -1) {
-            first_timestamp = timestamp;
-        }
-        t = timestamp - first_timestamp;
-
         // can_id
         std::string word = "vcan0 ";
-        start = line.find(word);
-        end = line.find('#');
+        size_t start = line.find(word);
+        size_t end = line.find('#');
         int CAN_ID = std::stoi(line.substr(
             start + word.length(), end - (start + word.length())), nullptr, 16
         );
-        // std::cout << CAN_ID << '\n';
-        if (CAN_ID != STEER_ActuatorLog_ID) continue;
+        if (CAN_ID != STEER_ActuatorLog_ID) continue; 
+        size_t hash_pos = end;
+
+        // timestamp
+        start = line.find('(');
+        end = line.find(')');
+        double timestamp = std::stod(line.substr(start + 1, end - start - 1));
+        if (first_timestamp == -1) {
+            first_timestamp = timestamp;
+        }
+        double t = timestamp - first_timestamp;
 
         // payload bytes 
+        std::string data = line.substr(hash_pos + 1);
         // signed, little endian, 16 bits
-        int64_t bits = std::stoull(line.substr(end + 1), nullptr, 16);
-        uint32_t signal_mask = 0x000000FF;
+        uint8_t byte0 = std::stoul(data.substr(0, 2), nullptr, 16);
+        uint8_t byte1 = std::stoul(data.substr(2, 2), nullptr, 16);
+        //uint32_t signal_mask = 0x000000FF;
 
         // extract then combine for little endian
-        int16_t MeasuredAngle_raw = ((bits & signal_mask) << 8) | ((bits & signal_mask << 8) >> 8);
+        uint16_t raw_bits = byte0 | (byte1 << 8);
+        int16_t MeasuredAngle_raw = static_cast<int16_t>(raw_bits);
         double y_measured = offset + scale * MeasuredAngle_raw;
         
-        //shift by 16 bits to get to CmdAngularRate
-        signal_mask = signal_mask << 16;
-        int16_t CmdAngularRate_raw = (((bits & signal_mask) << 8) | ((bits & signal_mask << 8) >> 8));
-        // shift back to read
-        CmdAngularRate_raw >>= 16;
+        byte0 = std::stoul(data.substr(4, 2), nullptr, 16);
+        byte1 = std::stoul(data.substr(6, 2), nullptr, 16);
+        raw_bits = byte0 | (byte1 << 8);
+        int16_t CmdAngularRate_raw = static_cast<int16_t>(raw_bits);
         double u_commanded = offset + scale * CmdAngularRate_raw;
         
         rows.push_back({t, u_commanded, y_measured});
