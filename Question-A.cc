@@ -39,6 +39,7 @@
 #include <fstream>
 #include <string>
 #include <vector>
+#include <iostream>
 
 // One output row.
 struct Row {
@@ -51,10 +52,63 @@ struct Row {
 // Push one Row{t, u_commanded, y_measured} per kept frame.
 std::vector<Row> decodeLog(const std::string& path) {
     std::vector<Row> rows;
+    std::ifstream file(path);
+    int STEER_ActuatorLog_ID = 0x200;
+    int can_id_mask = 0x7FF; // do we need this?
 
-    // TODO: your code here
-    (void)path;  // remove once you open the file
+    // same for both 
+    int offset = 0;
+    double scale = 0.1;
 
+    double timestamp = 0;
+    double first_timestamp = -1;
+    double t = 0;
+    // if (!file.is_open()) {
+    //     std::cout << "Failed to open file\n";
+    //     return 1;
+    // }
+    std::string line;
+    while (std::getline(file, line)) {
+        // timestamp
+        size_t start = line.find('(');
+        size_t end = line.find(')');
+        timestamp = std::stod(line.substr(start + 1, end - start - 1));
+        if (first_timestamp == -1) {
+            first_timestamp = timestamp;
+        }
+        t = timestamp - first_timestamp;
+
+        // can_id
+        std::string word = "vcan0 ";
+        start = line.find(word);
+        end = line.find('#');
+        int CAN_ID = std::stoi(line.substr(
+            start + word.length(), end - (start + word.length())), nullptr, 16
+        );
+        // std::cout << CAN_ID << '\n';
+        if (CAN_ID != STEER_ActuatorLog_ID) continue;
+
+        // payload bytes 
+        // signed, little endian, 16 bits
+        int64_t bits = std::stoull(line.substr(end + 1), nullptr, 16);
+        uint32_t signal_mask = 0x000000FF;
+
+        // extract then combine for little endian
+        int16_t MeasuredAngle_raw = ((bits & signal_mask) << 8) | ((bits & signal_mask << 8) >> 8);
+        double y_measured = offset + scale * MeasuredAngle_raw;
+        
+        //shift by 16 bits to get to CmdAngularRate
+        signal_mask = signal_mask << 16;
+        int16_t CmdAngularRate_raw = (((bits & signal_mask) << 8) | ((bits & signal_mask << 8) >> 8));
+        // shift back to read
+        CmdAngularRate_raw >>= 16;
+        double u_commanded = offset + scale * CmdAngularRate_raw;
+        
+        rows.push_back({t, u_commanded, y_measured});
+    }
+
+    // just returning rows for writeCsv to write
+    file.close();
     return rows;
 }
 
