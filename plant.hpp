@@ -22,10 +22,9 @@ struct Plant {
     // return: measured output angle, deg
     double step(double u_cmd, double dt) {
         double deadzone = 0.0;
-        double gain = 54.8 / 2.8 / 15;
+        double gain = 1.3;
         double time_constant = 0.08;
         double backlash = 5.0;
-        double y_0 = 0;
 
         double u_eff;
         if (abs(u_cmd) <= deadzone) {

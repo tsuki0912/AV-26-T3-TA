@@ -48,7 +48,12 @@ After comparing the simulated and measured responses, a backlash size of 5.0 fit
 
 
 ### Part C - control design choices
+double kp = 6.5; 
+        double ki = 0.1;
+        double kd = 0.35;
+        double integral_limit = 3.0;
 
+- made it follow the target graph better but also too aggressive inputs
 
 
 ### Part D - reflection

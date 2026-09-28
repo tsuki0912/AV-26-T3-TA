@@ -8,17 +8,56 @@
 
 
 #include "controller_interface.hpp"
+#include <iostream>
 
 class Controller : public IController {
+private:
+    double integral = 0.0;
+    double prev_error = 0.0;
+    double prev_measured_angle = 0.0;
+    double prev_filtered_deriv = 0.0;
 public:
     double update(double target, double measured, double dt) override {
         (void)dt;
         double error = target - measured;
-        double kp = 1.0; // TODO: replace with your design
-        return kp * error;
+        double kp = 6.5; 
+        double ki = 0.1;
+        double kd = 0.32;
+        double integral_limit = 3.0;
+        double alpha = 0.7;
+
+        double P = kp * error;
+
+        integral += error * dt;
+        // limiting accumulated error 
+        integral = std::clamp(integral, -integral_limit, integral_limit);
+        double I = ki * integral;
+
+        // double derivative = (error - prev_error) / dt;
+        // double D = kd * derivative;
+        double derivative = (measured - prev_measured_angle) / dt;
+        double D = -kd * derivative;
+        // double raw_deriv =
+        //     (measured - prev_measured_angle) / dt;
+
+        // double filtered_deriv =
+        //     alpha * prev_filtered_deriv
+        //     + (1.0 - alpha) * raw_deriv;
+
+        // double D = -kd * filtered_deriv;
+
+        prev_measured_angle = measured;
+        // prev_filtered_deriv = filtered_deriv;
+
+        double output = P + I + D;
+        //prev_error = error;
+        return output;
     }
 
     void reset() override {
-        // TODO: reset any internal state here, if you have any.
+        integral = 0.0;
+        prev_error = 0.0;
+        prev_measured_angle = 0.0;
+        prev_filtered_deriv = 0.0;
     }
 };

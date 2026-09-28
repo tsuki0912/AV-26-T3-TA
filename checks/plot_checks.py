@@ -102,7 +102,7 @@ def main():
     except ImportError:
         sys.exit("matplotlib not found -- run:  pip install matplotlib")
 
-    plot_plant_checks(plt, args.save)
+    # plot_plant_checks(plt, args.save)
     plot_controller_check(plt, args.save)
 
     if not args.save:
