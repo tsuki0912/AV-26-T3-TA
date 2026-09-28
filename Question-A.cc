@@ -90,7 +90,6 @@ std::vector<Row> decodeLog(const std::string& path) {
         // signed, little endian, 16 bits
         uint8_t byte0 = std::stoul(data.substr(0, 2), nullptr, 16);
         uint8_t byte1 = std::stoul(data.substr(2, 2), nullptr, 16);
-        //uint32_t signal_mask = 0x000000FF;
 
         // extract then combine for little endian
         uint16_t raw_bits = byte0 | (byte1 << 8);

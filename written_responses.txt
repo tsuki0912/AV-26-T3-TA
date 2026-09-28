@@ -1,16 +1,50 @@
 ### Part A - recover the data (CAN decode)
 
-Frame ID kept:
+Frame ID kept: 0x200
 
 Signal 1 (u_commanded):  byte position / endianness / signed? / scale / offset:
+4-8 / little endian / signed / 0.1 / 0 
 Signal 2 (y_measured):   byte position / endianness / signed? / scale / offset:
+0-4 / little endian / signed / 0.1 / 0 
 
 Notes (anything odd in the logs, how you checked the decode against the PNGs):
-
-
+- time stamp in brackets
+- [CAN ID]#[64 bits of data payload]
 
 ### Part B - identify system
+**step_test:**
+- final input is 15 u_cmd, stops at 3secs
+- at t = 3, angle = 54.8 deg. Rises to 56.2 deg
+- the slope starts at at 0.02s 
 
+gain = change in angle / input
+     = ((54.8 - 0) / (3 - 0.2)) / 15 = 1.305
+time constant:
+For a first-order response, after one time constant the angle has completed 63.2% of the remaining movement.
+54.8 + (56.2 - 54.8) * 0.632 = 55.6848
+reaches 55.6848 at approx 3.08secs, so time_constant = 0.08
+
+**deadband_test:**
+- command of +2 deg/s clearly causes motion, and the initial slope is close to what gain predicts (1.3 * 2 = 2.6 deg/s)
+- later +-2deg/s cause almost no measured change, even though the command keeps reversing
+- each command lasts about 2secs, giving an estimated internal angle change of 2.6 * 2 = 5.2 deg
+- since 5.2 deg is less than the previous backlash width of about 6 deg, the internal actuator position can move back and forth 
+inside the backlash gap while the measured output remains stationary
+- shows the actuator has a nonlinearity for small reversing commands, but cannot separate backlash from a very small deadzone
+
+This indicates no significant deadzone, or at least substantially less than 2 deg/s since +2 deg/s clearly produces motion. 
+Chose deadzone=0.0
+
+**reversal_test:**
+- at about t=4.0, input switches from +8 to -8 deg/s
+- measured angle reaches about 38.5 deg, then stays almost unchanged for roughly 0.6 s
+- flat section suggests that although the actuator has reversed internally, its motion is initially being used 
+to take up the backlash, so the measured output does not move yet
+- then it starts decreasing at target velocity 1.3 * -8 = -10.4 deg/s
+
+backlash_width = |-10.4| * 0.6 = 6.24
+
+After comparing the simulated and measured responses, a backlash size of 5.0 fit the model better.
 
 
 ### Part C - control design choices
@@ -18,3 +52,8 @@ Notes (anything odd in the logs, how you checked the decode against the PNGs):
 
 
 ### Part D - reflection
+what didn't work:
+* I initially treated the velocity command and measured angle as if they could be used directly in the same first-order model. This also led me to estimate the gain and time constant incorrectly.
+* I misunderstood what the first-order response represented. The model gives the actuator's velocity response not its angle, so the velocity must then be integrated to obtain angle.
+* I realised this during the step test, when the command changed to zero, my model made the angle return towards zero, whereas the real angle stayed at its final position.
+* The main issue was therefore not understanding the relationship between velocity input and angle output. Once I corrected this, I could model the velocity first and then integrate it to obtain the actuator angle.
