@@ -15,7 +15,7 @@ private:
     double integral = 0.0;
     double prev_error = 0.0;
     double prev_measured_angle = 0.0;
-    double prev_filtered_deriv = 0.0;
+
 public:
     double update(double target, double measured, double dt) override {
         (void)dt;
@@ -24,7 +24,6 @@ public:
         double ki = 0.1;
         double kd = 0.32;
         double integral_limit = 3.0;
-        double alpha = 0.7;
 
         double P = kp * error;
 
@@ -37,18 +36,9 @@ public:
         // double D = kd * derivative;
         double derivative = (measured - prev_measured_angle) / dt;
         double D = -kd * derivative;
-        // double raw_deriv =
-        //     (measured - prev_measured_angle) / dt;
-
-        // double filtered_deriv =
-        //     alpha * prev_filtered_deriv
-        //     + (1.0 - alpha) * raw_deriv;
-
-        // double D = -kd * filtered_deriv;
 
         prev_measured_angle = measured;
-        // prev_filtered_deriv = filtered_deriv;
-
+    
         double output = P + I + D;
         //prev_error = error;
         return output;
@@ -58,6 +48,5 @@ public:
         integral = 0.0;
         prev_error = 0.0;
         prev_measured_angle = 0.0;
-        prev_filtered_deriv = 0.0;
     }
 };

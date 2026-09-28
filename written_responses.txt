@@ -48,17 +48,27 @@ After comparing the simulated and measured responses, a backlash size of 5.0 fit
 
 
 ### Part C - control design choices
+Final gains:
 double kp = 6.5; 
-        double ki = 0.1;
-        double kd = 0.35;
-        double integral_limit = 3.0;
+double ki = 0.1;
+double kd = 0.32;
+double integral_limit = 3.0;
 
-- made it follow the target graph better but also too aggressive inputs
-
+- I tuned the controller progressively, starting with proportional control and increasing Kp until the response was fast enough without too much overshoot. 
+- I then added a derivative term to improve damping and a small integral term to remove remaining steady-state error. The accumulated integral error was clamped to +/-3 to reduce integral windup, particularly when the actuator was affected by backlash.
+- Lowering Kd improved the small correction but slightly increased overshoot, so I chose Kp = 6.5, Ki = 0.1, and Kd = 0.32 as a compromise between responsiveness, overshoot, and settling time.
+- Initially, I calculated the derivative from the error. Because the target changes instantaneously, differentiating the error caused large derivative kicks and command spikes whenever the target changed. I changed the derivative term to use the measured angle instead, so it responds to the actual steering motion rather than sudden changes in the target.
+- Because the measured angle is quantised to 0.1 deg, the derivative still had some small spikes. I tested a low-pass filter on the measured derivative to smooth this. The filter made the command smoother, but it increased settling time so I kept the unfiltered implementation.
+- Finally, I varied the plant parameters to check robustness. Moderate parameter changes degraded the response but remained stable, while larger changes caused slower settling and larger steady-state errors, showing the limits of the controller's robustness.
 
 ### Part D - reflection
-what didn't work:
+
+Part B:
 * I initially treated the velocity command and measured angle as if they could be used directly in the same first-order model. This also led me to estimate the gain and time constant incorrectly.
 * I misunderstood what the first-order response represented. The model gives the actuator's velocity response not its angle, so the velocity must then be integrated to obtain angle.
 * I realised this during the step test, when the command changed to zero, my model made the angle return towards zero, whereas the real angle stayed at its final position.
 * The main issue was therefore not understanding the relationship between velocity input and angle output. Once I corrected this, I could model the velocity first and then integrate it to obtain the actuator angle.
+
+Part C:
+* I learned that the goal is not to reproduce an instantaneous target jump exactly. The actuator cannot change angle instantaneously, so a good controller should move toward the target quickly and smoothly without requiring unrealistic commands or causing instability.
+* I found that tuning the controller involved trade-offs rather than finding one set of gains that was best for every behaviour. 
